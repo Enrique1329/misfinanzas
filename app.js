@@ -1298,6 +1298,82 @@ function ejecutarEliminacion() {
 }
 
 // ===================================================================
+// EXPORTAR / IMPORTAR BACKUP
+// ===================================================================
+function exportarDatos() {
+  const backup = {
+    version: 1,
+    exportadoEn: new Date().toISOString(),
+    transacciones: state.transacciones,
+    categorias: state.categorias,
+    meta: state.meta,
+    config: state.config
+  };
+
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fecha = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `mis-finanzas-backup-${fecha}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  mostrarToast('📤 Backup descargado correctamente');
+}
+
+function importarDatos(archivo) {
+  if (!archivo) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const datos = JSON.parse(e.target.result);
+
+      // Validación básica
+      if (!datos.transacciones || !datos.categorias) {
+        mostrarToast('❌ Archivo inválido. ¿Es un backup de esta app?');
+        return;
+      }
+
+      // Confirmación antes de sobrescribir
+      const n = datos.transacciones.length;
+      const confirmar = window.confirm(
+        `¿Importar este backup?\n\n· ${n} transacciones\n· ${datos.categorias.length} categorías\n\nEsto reemplazará todos tus datos actuales.`
+      );
+      if (!confirmar) return;
+
+      state.transacciones = datos.transacciones || [];
+      state.categorias = datos.categorias || [...CATEGORIAS_DEFAULT];
+      state.meta = datos.meta || null;
+      state.config = datos.config || { porcentajeAhorro: null };
+
+      // Migración por si el backup es de una versión anterior (sin grupo en categorías)
+      state.categorias.forEach(c => {
+        if (!c.grupo || !GRUPOS_50_30_20.some(g => g.id === c.grupo)) {
+          c.grupo = 'estilo_vida';
+        }
+      });
+
+      guardarTransacciones();
+      guardarCategorias();
+      guardarMeta();
+      guardarConfig();
+
+      // Actualizar el input de porcentaje con el valor importado
+      const inputPct = document.getElementById('ahorro-porcentaje');
+      if (inputPct) inputPct.value = state.config.porcentajeAhorro || '';
+
+      mostrarToast(`✅ Backup importado — ${n} transacciones restauradas`);
+      renderTodo();
+    } catch (err) {
+      console.error('Error al importar:', err);
+      mostrarToast('❌ No se pudo leer el archivo. ¿Está dañado?');
+    }
+  };
+  reader.readAsText(archivo);
+}
+
+// ===================================================================
 // EVENT LISTENERS (delegación de eventos para elementos dinámicos)
 // ===================================================================
 function inicializarEventos() {
@@ -1358,6 +1434,20 @@ function inicializarEventos() {
   const inputPorcentaje = document.getElementById('ahorro-porcentaje');
   inputPorcentaje.value = state.config.porcentajeAhorro || '';
   inputPorcentaje.addEventListener('input', (e) => guardarPorcentajeAhorro(e.target.value));
+
+  // Exportar / Importar (escritorio)
+  document.getElementById('btn-exportar').addEventListener('click', exportarDatos);
+  document.getElementById('input-importar').addEventListener('change', (e) => {
+    importarDatos(e.target.files[0]);
+    e.target.value = ''; // reset para poder importar el mismo archivo dos veces si hace falta
+  });
+
+  // Exportar / Importar (móvil)
+  document.getElementById('btn-exportar-mobile').addEventListener('click', exportarDatos);
+  document.getElementById('input-importar-mobile').addEventListener('change', (e) => {
+    importarDatos(e.target.files[0]);
+    e.target.value = '';
+  });
 
   // Filtros del historial (delegados a inputs estáticos)
   ['buscador', 'filtro-tipo', 'filtro-categoria', 'filtro-mes', 'rango-desde', 'rango-hasta'].forEach(id => {
