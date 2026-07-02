@@ -1301,25 +1301,39 @@ function ejecutarEliminacion() {
 // EXPORTAR / IMPORTAR BACKUP
 // ===================================================================
 function exportarDatos() {
-  const backup = {
-    version: 1,
-    exportadoEn: new Date().toISOString(),
-    transacciones: state.transacciones,
-    categorias: state.categorias,
-    meta: state.meta,
-    config: state.config
-  };
+  try {
+    const backup = {
+      version: 1,
+      exportadoEn: new Date().toISOString(),
+      transacciones: state.transacciones,
+      categorias: state.categorias,
+      meta: state.meta,
+      config: state.config
+    };
 
-  const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const fecha = new Date().toISOString().slice(0, 10);
-  a.href = url;
-  a.download = `mis-finanzas-backup-${fecha}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  mostrarToast('📤 Backup descargado correctamente');
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fecha = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `mis-finanzas-backup-${fecha}.json`;
+    a.style.display = 'none';
+
+    // CLAVE: el <a> debe estar en el DOM para que .click() dispare la descarga
+    // en todos los navegadores (Safari, iOS, algunos WebViews lo ignoran si no está insertado)
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Pequeño delay antes de revocar la URL para no cortar la descarga en navegadores lentos
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+
+    mostrarToast('📤 Backup descargado correctamente');
+  } catch (e) {
+    console.error('Error al exportar el backup:', e);
+    mostrarToast('❌ No se pudo generar el backup. Revisa la consola.');
+  }
 }
 
 function importarDatos(archivo) {
