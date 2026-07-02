@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mis Finanzas</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   /* ===================== TEMAS (variables CSS) ===================== */
   :root, [data-theme="claro"] {
@@ -232,8 +231,8 @@
               <span><span class="inline-block w-2 h-2 rounded-full dot-gasto mr-1"></span>Gastos</span>
             </div>
           </div>
-          <div class="relative h-48">
-            <canvas id="tendencia-chart"></canvas>
+          <div class="relative h-48" id="tendencia-chart-wrap">
+            <svg id="tendencia-chart" viewBox="0 0 600 192" preserveAspectRatio="none" class="w-full h-full"></svg>
           </div>
           <p id="tendencia-empty" class="t-text-faint text-xs text-center py-12 hidden">Aún no hay suficientes datos para mostrar una tendencia.</p>
         </section>
