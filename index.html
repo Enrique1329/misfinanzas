@@ -135,7 +135,17 @@
 
       <div class="mt-auto">
         <p class="text-xs t-text-faint font-semibold uppercase tracking-wide mb-2">Tema</p>
-        <div class="flex gap-2 flex-wrap" id="theme-switcher"></div>
+        <div class="flex gap-2 flex-wrap mb-5" id="theme-switcher"></div>
+        <p class="text-xs t-text-faint font-semibold uppercase tracking-wide mb-2">Datos</p>
+        <div class="flex flex-col gap-1.5">
+          <button id="btn-exportar" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium t-hover t-text-soft">
+            <span>📤</span> Exportar backup
+          </button>
+          <label id="label-importar" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium t-hover t-text-soft cursor-pointer">
+            <span>📥</span> Importar backup
+            <input type="file" id="input-importar" accept=".json" class="hidden" />
+          </label>
+        </div>
       </div>
     </aside>
 
@@ -143,7 +153,15 @@
     <main class="flex-1 px-5 md:px-10 py-8 pb-24 md:pb-8 max-w-3xl mx-auto w-full">
 
       <!-- SELECTOR DE TEMA (solo móvil, escritorio lo tiene en el sidebar) -->
-      <div class="md:hidden flex items-center justify-end gap-2 mb-2" id="theme-switcher-mobile"></div>
+      <div class="md:hidden flex items-center justify-between gap-2 mb-4">
+        <div class="flex items-center gap-2" id="theme-switcher-mobile"></div>
+        <div class="flex gap-2">
+          <button id="btn-exportar-mobile" class="text-xs t-text-soft t-hover px-2 py-1.5 rounded-lg border t-border">📤</button>
+          <label class="text-xs t-text-soft t-hover px-2 py-1.5 rounded-lg border t-border cursor-pointer">
+            📥<input type="file" id="input-importar-mobile" accept=".json" class="hidden" />
+          </label>
+        </div>
+      </div>
 
       <!-- ===================== VISTA: DASHBOARD ===================== -->
       <section id="view-dashboard" class="view active">
