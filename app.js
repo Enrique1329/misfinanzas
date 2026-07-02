@@ -33,8 +33,6 @@ const CATEGORIAS_DEFAULT = [
 const COLORES_DISPONIBLES = ['#F59E0B', '#3B82F6', '#10A37F', '#8B5CF6', '#EF4444', '#6B7280', '#EC4899', '#14B8A6'];
 const ICONOS_DISPONIBLES = ['🍔', '🚗', '💼', '🎮', '📦', '🏠', '💊', '✈️', '📚', '🎁', '☕', '👕'];
 
-let chartTendencia = null;
-
 let state = {
   transacciones: [],
   categorias: [],
@@ -543,98 +541,86 @@ function renderAlertasHormiga() {
 // RENDER: GRÁFICO DE TENDENCIA (Chart.js)
 // ===================================================================
 function renderTendencia() {
-  const canvas = document.getElementById('tendencia-chart');
+  const svg = document.getElementById('tendencia-chart');
   const vacio = document.getElementById('tendencia-empty');
 
-  // Si la librería Chart.js no se cargó (sin internet, CDN bloqueado, etc.),
-  // no rompemos el resto del Dashboard ni el flujo de guardar transacciones.
-  if (typeof Chart === 'undefined') {
-    canvas.classList.add('hidden');
-    vacio.classList.remove('hidden');
-    vacio.textContent = '⚠️ No se pudo cargar el gráfico (sin conexión a internet). El resto de la app funciona normal.';
-    return;
-  }
-
   if (state.transacciones.length === 0) {
-    canvas.classList.add('hidden');
+    svg.classList.add('hidden');
     vacio.classList.remove('hidden');
     vacio.textContent = 'Aún no hay suficientes datos para mostrar una tendencia.';
-    if (chartTendencia) { chartTendencia.destroy(); chartTendencia = null; }
+    svg.innerHTML = '';
     return;
   }
-  canvas.classList.remove('hidden');
+  svg.classList.remove('hidden');
   vacio.classList.add('hidden');
 
   const { etiquetas, ingresosPorMes, gastosPorMes } = calcularTendenciaMensual(6);
   const cIngreso = colorIngreso();
   const cGasto = colorGasto();
+  const cBorde = colorBorde();
 
-  if (chartTendencia) {
-    chartTendencia.data.labels = etiquetas;
-    chartTendencia.data.datasets[0].data = ingresosPorMes;
-    chartTendencia.data.datasets[0].borderColor = cIngreso;
-    chartTendencia.data.datasets[0].backgroundColor = cIngreso + '22';
-    chartTendencia.data.datasets[0].pointBackgroundColor = cIngreso;
-    chartTendencia.data.datasets[1].data = gastosPorMes;
-    chartTendencia.data.datasets[1].borderColor = cGasto;
-    chartTendencia.data.datasets[1].backgroundColor = cGasto + '22';
-    chartTendencia.data.datasets[1].pointBackgroundColor = cGasto;
-    chartTendencia.options.scales.y.grid.color = colorBorde();
-    chartTendencia.update();
-    return;
+  // Lienzo SVG fijo (viewBox), con padding interno para los textos del eje
+  const W = 600, H = 192;
+  const padL = 38, padR = 8, padT = 10, padB = 22;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const maxValor = Math.max(1, ...ingresosPorMes, ...gastosPorMes);
+  // Redondeamos el techo del eje Y a un número "limpio" para que los ticks se vean bien
+  const techo = Math.ceil(maxValor / 5) * 5 || 5;
+
+  const n = etiquetas.length;
+  const xPara = (i) => padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
+  const yPara = (valor) => padT + innerH - (innerH * valor) / techo;
+
+  function construirPath(valores) {
+    return valores.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xPara(i).toFixed(1)} ${yPara(v).toFixed(1)}`).join(' ');
   }
 
-  chartTendencia = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels: etiquetas,
-      datasets: [
-        {
-          label: 'Ingresos',
-          data: ingresosPorMes,
-          borderColor: cIngreso,
-          backgroundColor: cIngreso + '22',
-          tension: 0.35,
-          fill: true,
-          pointRadius: 3,
-          pointBackgroundColor: cIngreso
-        },
-        {
-          label: 'Gastos',
-          data: gastosPorMes,
-          borderColor: cGasto,
-          backgroundColor: cGasto + '22',
-          tension: 0.35,
-          fill: true,
-          pointRadius: 3,
-          pointBackgroundColor: cGasto
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${formatoMoneda(ctx.parsed.y)}`
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { callback: (v) => `$${v}`, font: { size: 11 } },
-          grid: { color: colorBorde() }
-        },
-        x: {
-          ticks: { font: { size: 11 } },
-          grid: { display: false }
-        }
-      }
-    }
+  function construirAreaPath(valores) {
+    const linea = valores.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xPara(i).toFixed(1)} ${yPara(v).toFixed(1)}`).join(' ');
+    const base = `L ${xPara(n - 1).toFixed(1)} ${(padT + innerH).toFixed(1)} L ${xPara(0).toFixed(1)} ${(padT + innerH).toFixed(1)} Z`;
+    return linea + ' ' + base;
+  }
+
+  // Líneas de grilla horizontal (4 divisiones) + etiquetas del eje Y
+  let gridSvg = '';
+  const pasos = 4;
+  for (let i = 0; i <= pasos; i++) {
+    const valor = (techo / pasos) * i;
+    const y = yPara(valor);
+    gridSvg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="${cBorde}" stroke-width="1" />`;
+    gridSvg += `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="${cBorde}" font-family="Inter, sans-serif">$${Math.round(valor)}</text>`;
+  }
+
+  // Etiquetas del eje X (un mes sí y otro según el espacio, para que no se amontonen en pantallas chicas)
+  let etiquetasXSvg = '';
+  etiquetas.forEach((etq, i) => {
+    etiquetasXSvg += `<text x="${xPara(i).toFixed(1)}" y="${H - 4}" text-anchor="middle" font-size="9" fill="${cBorde}" font-family="Inter, sans-serif">${etq}</text>`;
   });
+
+  const puntosIngresoSvg = ingresosPorMes.map((v, i) =>
+    `<circle cx="${xPara(i).toFixed(1)}" cy="${yPara(v).toFixed(1)}" r="3" fill="${cIngreso}">
+       <title>Ingresos ${etiquetas[i]}: ${formatoMoneda(v)}</title>
+     </circle>`
+  ).join('');
+
+  const puntosGastoSvg = gastosPorMes.map((v, i) =>
+    `<circle cx="${xPara(i).toFixed(1)}" cy="${yPara(v).toFixed(1)}" r="3" fill="${cGasto}">
+       <title>Gastos ${etiquetas[i]}: ${formatoMoneda(v)}</title>
+     </circle>`
+  ).join('');
+
+  svg.innerHTML = `
+    ${gridSvg}
+    ${etiquetasXSvg}
+    <path d="${construirAreaPath(ingresosPorMes)}" fill="${cIngreso}22" stroke="none" />
+    <path d="${construirAreaPath(gastosPorMes)}" fill="${cGasto}22" stroke="none" />
+    <path d="${construirPath(ingresosPorMes)}" fill="none" stroke="${cIngreso}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="${construirPath(gastosPorMes)}" fill="none" stroke="${cGasto}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+    ${puntosIngresoSvg}
+    ${puntosGastoSvg}
+  `;
 }
 
 // ===================================================================
